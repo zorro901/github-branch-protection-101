@@ -1,21 +1,53 @@
-name: Status Check
+name: Branch Protection Check
 on:
-  push:
-    branches:
-      - '**'
-      - '!master'
+  pull_request:
+    branches: [main, staging, develop]
 
 jobs:
-  check1:
+  branch-policy:
+    name: branch-policy
     runs-on: ubuntu-latest
-
     steps:
-      - name: something test1
-        run: exit 1
-
-  check2:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: something test2
-        run: exit 0
+      - name: Validate Branch Policy
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          echo "ソースブランチ: $SOURCE_BRANCH"
+          echo "ターゲットブランチ: $TARGET_BRANCH"
+          
+          # mainブランチの制御
+          if [ "$TARGET_BRANCH" = "main" ]; then
+            if [ "$SOURCE_BRANCH" != "staging" ]; then
+              echo "::error::❌ mainブランチには staging からのみマージできます"
+              echo "::error::現在のソースブランチ: $SOURCE_BRANCH"
+              echo "::error::許可されるソースブランチ: staging"
+              exit 1
+            fi
+            echo "✅ main ← staging マージが承認されました"
+          fi
+          
+          # stagingブランチの制御
+          if [ "$TARGET_BRANCH" = "staging" ]; then
+            if [ "$SOURCE_BRANCH" != "develop" ]; then
+              echo "::error::❌ stagingブランチには develop からのみマージできます"
+              echo "::error::現在のソースブランチ: $SOURCE_BRANCH"
+              echo "::error::許可されるソースブランチ: develop"
+              exit 1
+            fi
+            echo "✅ staging ← develop マージが承認されました"
+          fi
+          
+          # developブランチの制御
+          if [ "$TARGET_BRANCH" = "develop" ]; then
+            if [[ ! "$SOURCE_BRANCH" =~ ^feat/ ]]; then
+              echo "::error::❌ developブランチには feat/ で始まるブランチからのみマージできます"
+              echo "::error::現在のソースブランチ: $SOURCE_BRANCH"
+              echo "::error::許可されるブランチパターン: feat/*"
+              echo "::error::例: feat/user-login, feat/payment-system"
+              exit 1
+            fi
+            echo "✅ develop ← $SOURCE_BRANCH マージが承認されました"
+          fi
+          
+          echo "🎉 ブランチポリシーの検証が完了しました"
