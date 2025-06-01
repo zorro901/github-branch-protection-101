@@ -1,17 +1,23 @@
-name: Branch Name Validation
+name: Branch Protection
 on:
+  push:
   create:
 
 jobs:
-  validate-branch-name:
-    if: github.event.ref_type == 'branch'
+  validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate branch name
+      - name: Check branch name
         run: |
-          branch_name="${{ github.event.ref }}"
+          if [ "${{ github.event_name }}" == "create" ]; then
+            branch_name="${{ github.event.ref }}"
+          else
+            branch_name="${{ github.ref_name }}"
+          fi
+          
           if [[ ! $branch_name =~ ^(develop|staging|main|[0-9]+-(feature|bugfix)-.+)$ ]]; then
-            echo "Invalid branch name: $branch_name"
-            echo "Allowed patterns: develop, staging, main, [0-9]+-(feature|bugfix)-.+"
+            echo "❌ Invalid branch name: $branch_name"
+            # ブランチを削除する
+            git push origin --delete $branch_name || true
             exit 1
           fi
