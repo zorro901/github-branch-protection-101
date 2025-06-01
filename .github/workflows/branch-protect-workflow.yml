@@ -1,111 +1,41 @@
-name: Branch Name Validation
+name: Branch Protection Check
 on:
   pull_request:
-    branches:
-      - main
-      - staging
-      - develop
-  push:
-    branches:
-      - main
-      - staging
-      - develop
+    branches: [main, staging, develop]
 
 jobs:
-  validate-source-branch:
+  branch-policy:
     runs-on: ubuntu-latest
     steps:
-      - name: Check source branch name
-        run: |
-          # プルリクエストの場合は head_ref、プッシュの場合は ref_name を使用
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            source_branch="${{ github.head_ref }}"
-            target_branch="${{ github.base_ref }}"
-            echo "PR from: $source_branch → $target_branch"
-          else
-            source_branch="${{ github.ref_name }}"
-            target_branch="$source_branch"
-            echo "Direct push to: $target_branch"
-          fi
-          
-          # 許可されるブランチパターン
-          allowed_patterns=(
-            "develop"
-            "staging"
-            "main"
-            "^[0-9]+-(feature|bugfix)-.+"
-            "^hotfix-.+"
-          )
-          
-          # target_branchが保護対象の場合のみチェック
-          if [[ "$target_branch" =~ ^(main|staging|develop)$ ]]; then
-            echo "Checking merge/push to protected branch: $target_branch"
-          
-            # main ブランチの特別ルール
-            if [ "$target_branch" == "main" ]; then
-              if [[ ! "$source_branch" =~ ^(staging|hotfix-.+)$ ]]; then
-                echo "❌ Error: main branch only accepts merges from:"
-                echo "  - staging"
-                echo "  - hotfix-* branches"
-                echo "Current source: $source_branch"
-                exit 1
-              fi
-            fi
-          
-            # staging ブランチの特別ルール  
-            if [ "$target_branch" == "staging" ]; then
-              if [[ ! "$source_branch" =~ ^(develop|[0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
-                echo "❌ Error: staging branch only accepts merges from:"
-                echo "  - develop"
-                echo "  - [0-9]+-(feature|bugfix)-* branches"
-                echo "  - hotfix-* branches"
-                echo "Current source: $source_branch"
-                exit 1
-              fi
-            fi
-          
-            # develop ブランチの特別ルール
-            if [ "$target_branch" == "develop" ]; then
-              if [[ ! "$source_branch" =~ ^([0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
-                echo "❌ Error: develop branch only accepts merges from:"
-                echo "  - [0-9]+-(feature|bugfix)-* branches"  
-                echo "  - hotfix-* branches"
-                echo "Current source: $source_branch"
-                exit 1
-              fi
-            fi
-          
-            echo "✅ Branch merge validation passed"
-          else
-            echo "ℹ️  Target branch $target_branch is not protected, skipping validation"
-          fi
-
-  # 追加のチェック：ブランチ命名規則の検証
-  validate-branch-naming:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Validate branch naming convention
+      - name: Validate merge policy
         run: |
           source_branch="${{ github.head_ref }}"
-          echo "Validating branch name: $source_branch"
+          target_branch="${{ github.base_ref }}"
           
-          # 許可されるパターン
-          if [[ "$source_branch" =~ ^(develop|staging|main)$ ]] || \
-             [[ "$source_branch" =~ ^[0-9]+-(feature|bugfix)-.+ ]] || \
-             [[ "$source_branch" =~ ^hotfix-.+ ]]; then
-            echo "✅ Branch name follows naming convention"
-          else
-            echo "❌ Invalid branch name: $source_branch"
-            echo ""
-            echo "Allowed patterns:"
-            echo "  - develop, staging, main"
-            echo "  - [0-9]+-(feature|bugfix)-[description]"
-            echo "  - hotfix-[description]"
-            echo ""
-            echo "Examples:"
-            echo "  - 123-feature-user-authentication"
-            echo "  - 456-bugfix-payment-issue"
-            echo "  - hotfix-security-patch"
-            exit 1
-          fi
+          echo "🔍 Checking: $source_branch → $target_branch"
+          
+          case "$target_branch" in
+            "main")
+              if [[ ! "$source_branch" =~ ^(staging|hotfix-.+)$ ]]; then
+                echo "❌ main only accepts: staging, hotfix-*"
+                echo "   Current: $source_branch"
+                exit 1
+              fi
+              ;;
+            "staging") 
+              if [[ ! "$source_branch" =~ ^(develop|[0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
+                echo "❌ staging only accepts: develop, [0-9]+-(feature|bugfix)-*, hotfix-*"
+                echo "   Current: $source_branch" 
+                exit 1
+              fi
+              ;;
+            "develop")
+              if [[ ! "$source_branch" =~ ^([0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
+                echo "❌ develop only accepts: [0-9]+-(feature|bugfix)-*, hotfix-*"
+                echo "   Current: $source_branch"
+                exit 1
+              fi
+              ;;
+          esac
+          
+          echo "✅ Branch policy check passed"
