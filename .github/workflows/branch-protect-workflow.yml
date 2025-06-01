@@ -1,41 +1,27 @@
-name: Branch Protection Check
+name: Branch Protection Validation
 on:
   pull_request:
-    branches: [main, staging, develop]
+    branches: [main, staging]
 
 jobs:
-  branch-policy:
+  validate-merge-policy:
+    name: Validate Merge Policy
     runs-on: ubuntu-latest
     steps:
-      - name: Validate merge policy
-        run: |
-          source_branch="${{ github.head_ref }}"
-          target_branch="${{ github.base_ref }}"
-          
-          echo "🔍 Checking: $source_branch → $target_branch"
-          
-          case "$target_branch" in
-            "main")
-              if [[ ! "$source_branch" =~ ^(staging|hotfix-.+)$ ]]; then
-                echo "❌ main only accepts: staging, hotfix-*"
-                echo "   Current: $source_branch"
-                exit 1
-              fi
-              ;;
-            "staging") 
-              if [[ ! "$source_branch" =~ ^(develop|[0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
-                echo "❌ staging only accepts: develop, [0-9]+-(feature|bugfix)-*, hotfix-*"
-                echo "   Current: $source_branch" 
-                exit 1
-              fi
-              ;;
-            "develop")
-              if [[ ! "$source_branch" =~ ^([0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
-                echo "❌ develop only accepts: [0-9]+-(feature|bugfix)-*, hotfix-*"
-                echo "   Current: $source_branch"
-                exit 1
-              fi
-              ;;
-          esac
-          
-          echo "✅ Branch policy check passed"
+      - uses: actions/checkout@v4
+
+      - name: Validate Main Branch Merges
+        if: github.base_ref == 'main'
+        uses: KinsonDigital/BranchValidator@v1.0.0-preview.4
+        with:
+          branch-name: "${{ github.head_ref }}"
+          validation-logic: "equalTo('staging')"
+          fail-when-not-valid: true
+
+      - name: Validate Staging Branch Merges
+        if: github.base_ref == 'staging'
+        uses: KinsonDigital/BranchValidator@v1.0.0-preview.4
+        with:
+          branch-name: "${{ github.head_ref }}"
+          validation-logic: "equalTo('develop')"
+          fail-when-not-valid: true
