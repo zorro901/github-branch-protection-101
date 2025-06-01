@@ -1,7 +1,7 @@
 name: Branch Protection Check
 on:
   pull_request:
-    branches: [main, staging]
+    branches: [main, staging, develop]
 
 jobs:
   branch-policy:
@@ -36,6 +36,18 @@ jobs:
               exit 1
             fi
             echo "✅ staging ← develop マージが承認されました"
+          fi
+          
+          # developブランチの制御
+          if [ "$TARGET_BRANCH" = "develop" ]; then
+            if [[ ! "$SOURCE_BRANCH" =~ ^feat/ ]]; then
+              echo "::error::❌ developブランチには feat/ で始まるブランチからのみマージできます"
+              echo "::error::現在のソースブランチ: $SOURCE_BRANCH"
+              echo "::error::許可されるブランチパターン: feat/*"
+              echo "::error::例: feat/user-login, feat/payment-system"
+              exit 1
+            fi
+            echo "✅ develop ← $SOURCE_BRANCH マージが承認されました"
           fi
           
           echo "🎉 ブランチポリシーの検証が完了しました"
