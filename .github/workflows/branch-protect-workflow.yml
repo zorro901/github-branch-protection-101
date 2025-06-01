@@ -1,0 +1,41 @@
+name: Branch Protection Check
+on:
+  pull_request:
+    branches: [main, staging, develop]
+
+jobs:
+  branch-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate merge policy
+        run: |
+          source_branch="${{ github.head_ref }}"
+          target_branch="${{ github.base_ref }}"
+          
+          echo "🔍 Checking: $source_branch → $target_branch"
+          
+          case "$target_branch" in
+            "main")
+              if [[ ! "$source_branch" =~ ^(staging|hotfix-.+)$ ]]; then
+                echo "❌ main only accepts: staging, hotfix-*"
+                echo "   Current: $source_branch"
+                exit 1
+              fi
+              ;;
+            "staging") 
+              if [[ ! "$source_branch" =~ ^(develop|[0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
+                echo "❌ staging only accepts: develop, [0-9]+-(feature|bugfix)-*, hotfix-*"
+                echo "   Current: $source_branch" 
+                exit 1
+              fi
+              ;;
+            "develop")
+              if [[ ! "$source_branch" =~ ^([0-9]+-(feature|bugfix)-.+|hotfix-.+)$ ]]; then
+                echo "❌ develop only accepts: [0-9]+-(feature|bugfix)-*, hotfix-*"
+                echo "   Current: $source_branch"
+                exit 1
+              fi
+              ;;
+          esac
+          
+          echo "✅ Branch policy check passed"
