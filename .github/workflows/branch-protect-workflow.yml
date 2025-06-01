@@ -1,0 +1,17 @@
+name: Branch Name Validation
+on:
+  create:
+
+jobs:
+  validate-branch-name:
+    if: github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        run: |
+          branch_name="${{ github.event.ref }}"
+          if [[ ! $branch_name =~ ^(develop|staging|main|[0-9]+-(feature|bugfix)-.+)$ ]]; then
+            echo "Invalid branch name: $branch_name"
+            echo "Allowed patterns: develop, staging, main, [0-9]+-(feature|bugfix)-.+"
+            exit 1
+          fi
